@@ -1,0 +1,10 @@
+RTH: bundled ffmpeg found at: /Users/adil/Desktop/BalatroPy/dist/Balatro.app/Contents/Frameworks/ffmpeg/ffmpeg-macos-aarch64-v7.1
+RTH: IMAGEIO_FFMPEG_EXE set to: /Users/adil/Desktop/BalatroPy/dist/Balatro.app/Contents/Frameworks/ffmpeg/ffmpeg-macos-aarch64-v7.1
+pygame 2.6.1 (SDL 2.28.4, Python 3.13.5)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+Masaüstü boyutu algılandı: (1470, 956)
+DEBUG (MONEY): 'init' -> MONEY = 0
+VIDEO: loaded /Users/adil/Desktop/BalatroPy/dist/Balatro.app/Contents/Frameworks/assets/videos/enterence_video.mp4 duration=5.0
+VIDEO: starting index=0
+VIDEO: loaded /Users/adil/Desktop/BalatroPy/dist/Balatro.app/Contents/Frameworks/assets/videos/enterence_video_py.mp4 duration=5.1
+VIDEO: starting index=1
