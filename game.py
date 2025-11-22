@@ -3275,9 +3275,18 @@ class Enemy:
                             except Exception:
                                 cur_ante = 1
 
+                        # Determine ante robustly
+                        try:
+                            cur_ante = int(globals().get('ante_level', cur_ante))
+                        except Exception:
+                            try:
+                                cur_ante = int(cur_ante)
+                            except Exception:
+                                cur_ante = 1
+
+                        # Endless mode: advance ante and go directly to shop flow
                         if cur_ante >= 10:
                             try:
-                                # advance ante and load next boss
                                 next_ante = int(cur_ante) + 1
                                 globals()['ante_level'] = next_ante
                             except Exception:
@@ -3292,7 +3301,6 @@ class Enemy:
                                     load_boss_for_ante(next_ante)
                                 except Exception:
                                     pass
-                            # Reset only hand/score state; preserve MONEY/deck/etc.
                             try:
                                 reset_hand_state()
                             except Exception:
@@ -3305,10 +3313,15 @@ class Enemy:
                                 except Exception:
                                     pass
                         else:
+                            # NORMAL MODE: Always go to the boss-defeated narrative state.
+                            # Force the transition regardless of boss naming or other flags.
                             try:
-                                game_state = STATE_BOSS_DEFEATED_A
+                                globals()['game_state'] = STATE_BOSS_DEFEATED_A
                             except Exception:
-                                pass
+                                try:
+                                    game_state = STATE_BOSS_DEFEATED_A
+                                except Exception:
+                                    pass
                     except Exception:
                         pass
                 except Exception:
