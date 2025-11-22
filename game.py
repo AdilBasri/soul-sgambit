@@ -179,6 +179,7 @@ STATE_GAMBIT_CHOICE = 9
 STATE_GAMBIT_RESULT = 10
 STATE_TRUE_ENDING = 11
 STATE_VIDEO_INTRO = 12
+STATE_MERCY_PHASE = 13
 # Kart Boyutu (Custom Minimum Size)
 # Quick tuning: reduce default scale from 1.8 to 1.4 for better fit
 CARD_SCALE = 1.4
@@ -579,7 +580,7 @@ class ScoreSplash(pygame.sprite.Sprite):
             except Exception:
                 pass
         try:
-            if self.font is not None:
+            if self.font is not None and self.image is not None:
                 self.image = self.font.render(self.text, True, self.color)
                 try:
                     self.image.set_alpha(self.alpha)
@@ -2395,6 +2396,213 @@ extra_card = None
 first_ante_completed = False
 
 
+# --- MERCY PHASE (SAVAŞ MODU) SINIFLARI ---
+
+class MercySoul:
+    """Undertale tarzı savaşta oyuncunun yönettiği kalp/ruh."""
+    def __init__(self):
+        # Fail-safe initialization: ensure a visible rect even if the image fails
+        self.image = None
+        self.rect = pygame.Rect(0, 0, 64, 64)  # Default fallback size
+
+        try:
+            img_path = resource_path('assets/character.png')
+            loaded_img = pygame.image.load(img_path).convert_alpha()
+            try:
+                self.image = pygame.transform.smoothscale(loaded_img, (64, 64))
+            except Exception:
+                try:
+                    self.image = pygame.transform.scale(loaded_img, (64, 64))
+                except Exception:
+                    self.image = None
+
+            if self.image is not None:
+                self.rect = self.image.get_rect()
+        except Exception as e:
+            try:
+                print(f"UYARI: Karakter görseli yüklenemedi ({e}). Kırmızı kare kullanılacak.")
+            except Exception:
+                pass
+            self.image = None
+
+        # Movement speed and starting position (arena center by default)
+        self.speed = 250
+        try:
+            self.rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+        except Exception:
+            # Fallback: place at reasonable coordinates
+            try:
+                self.rect.x = SCREEN_WIDTH // 2
+                self.rect.y = SCREEN_HEIGHT // 2
+            except Exception:
+                self.rect.x = 100
+                self.rect.y = 100
+
+    def update(self, dt: float):
+        try:
+            keys = pygame.key.get_pressed()
+        except Exception:
+            keys = []
+
+        dx = 0
+        dy = 0
+        try:
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                dx = -1
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                dx = 1
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                dy = -1
+            if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                dy = 1
+        except Exception:
+            pass
+
+        try:
+            if dx != 0 and dy != 0:
+                dx *= 0.7071
+                dy *= 0.7071
+        except Exception:
+            pass
+
+        try:
+            move_dt = float(dt) if dt else 0.016
+            self.rect.x += int(dx * self.speed * move_dt)
+            self.rect.y += int(dy * self.speed * move_dt)
+        except Exception:
+            pass
+
+        # Clamp inside mercy arena rect if present
+        try:
+            arena = globals().get('mercy_arena_rect')
+            if arena:
+                try:
+                    self.rect.clamp_ip(arena.inflate(-6, -6))
+                except Exception:
+                    # manual clamp fallback
+                    try:
+                        if self.rect.left < arena.left + 6:
+                            self.rect.left = arena.left + 6
+                        if self.rect.right > arena.right - 6:
+                            self.rect.right = arena.right - 6
+                        if self.rect.top < arena.top + 6:
+                            self.rect.top = arena.top + 6
+                        if self.rect.bottom > arena.bottom - 6:
+                            self.rect.bottom = arena.bottom - 6
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    def draw(self, surface):
+        # Draw sprite if available; otherwise draw a visible red square fallback
+        try:
+            if self.image:
+                surface.blit(self.image, self.rect)
+            else:
+                pygame.draw.rect(surface, (255, 0, 0), self.rect)
+        except Exception:
+            try:
+                pygame.draw.rect(surface, (255, 0, 0), self.rect)
+            except Exception:
+                pass
+
+
+class MercyProjectile:
+    """Savaş modunda oyuncuya saldıran mermiler."""
+    def __init__(self, x, y, vx, vy, ptype='default'):
+        self.rect = pygame.Rect(int(x), int(y), 10, 10) # 10x10 mermi
+        self.vx = float(vx)
+        self.vy = float(vy)
+        self.type = ptype
+        self.alive = True
+
+    def update(self, dt):
+        try:
+            self.rect.x += int(self.vx * dt)
+            self.rect.y += int(self.vy * dt)
+        except Exception:
+            pass
+        
+        # Ekran dışına çıkarsa yok et (Performans)
+        try:
+            if not screen.get_rect().colliderect(self.rect):
+                self.alive = False
+        except Exception:
+            pass
+            
+    def draw(self, surface):
+        color = (255, 255, 255) # Beyaz
+        try:
+            if self.type == 'feed': color = (255, 255, 0)
+            elif self.type == 'tears': color = (0, 100, 255)
+        except Exception:
+            pass
+        try:
+            pygame.draw.rect(surface, color, self.rect)
+        except Exception:
+            pass
+
+
+def update_mercy_logic(dt):
+    """Boss'a göre mermi deseni (pattern) oluşturur."""
+    try:
+        global mercy_projectiles, current_boss_key, mercy_spawn_timer
+        if 'mercy_projectiles' not in globals():
+            globals()['mercy_projectiles'] = []
+        if 'mercy_spawn_timer' not in globals():
+            globals()['mercy_spawn_timer'] = 0.0
+        globals()['mercy_spawn_timer'] += float(dt)
+        # spawn delay
+        spawn_delay = 0.2
+        ck = globals().get('current_boss_key')
+        if ck in ('boss1', 'Gallus'):
+            spawn_delay = 0.15
+        if globals()['mercy_spawn_timer'] >= spawn_delay:
+            globals()['mercy_spawn_timer'] = 0.0
+            arena = globals().get('mercy_arena_rect', pygame.Rect((SCREEN_WIDTH//2)-150, (SCREEN_HEIGHT//2)-150, 300, 300))
+            if ck in ('boss1', 'Gallus'):
+                x = random.randint(arena.left, max(arena.left+1, arena.right - 10))
+                p = MercyProjectile(x, arena.top, 0, 200, 'feed')
+                globals()['mercy_projectiles'].append(p)
+            elif ck in ('boss2', 'Oculus'):
+                # simple radial shot from random edge towards center
+                side = random.choice(['top','bottom','left','right'])
+                cx = arena.centerx
+                cy = arena.centery
+                if side == 'top':
+                    sx = random.randint(arena.left, arena.right)
+                    sy = arena.top
+                elif side == 'bottom':
+                    sx = random.randint(arena.left, arena.right)
+                    sy = arena.bottom
+                elif side == 'left':
+                    sx = arena.left
+                    sy = random.randint(arena.top, arena.bottom)
+                else:
+                    sx = arena.right
+                    sy = random.randint(arena.top, arena.bottom)
+                # velocity toward center
+                dx = cx - sx
+                dy = cy - sy
+                dist = math.hypot(dx, dy) or 1.0
+                speed = 160.0
+                vx = dx / dist * speed
+                vy = dy / dist * speed
+                p = MercyProjectile(sx, sy, vx, vy, 'tears')
+                globals()['mercy_projectiles'].append(p)
+            else:
+                x = random.randint(arena.left, arena.right)
+                p = MercyProjectile(x, arena.top, 0, 150, 'default')
+                globals()['mercy_projectiles'].append(p)
+    except Exception:
+        pass
+
+
+# Visual feedback timer for mercy hits (ms)
+mercy_hit_flash_time = 0
+
+
 class Enemy:
     """Simple enemy with health and a drawable sprite."""
     def __init__(self):
@@ -3178,102 +3386,113 @@ def handle_gambit_choice(choice):
     global current_score, displayed_score, shop_items_generated, current_shop_items
     global extra_card, first_ante_completed, enemy, current_boss_effect, current_boss_story
     global MONEY, consecutive_kills
+    # Centralize globals we will modify/read
+    global total_spared_bosses, ante_level, HANDS_REMAINING, DISCARDS_REMAINING
+    global current_score, displayed_score, shop_items_generated, current_shop_items
+    global extra_card, first_ante_completed, enemy, current_boss_effect, current_boss_story
+    global MONEY, consecutive_kills, pending_gambit_choice, gambit_result_message
+
+    # --- SEÇİMİ KAYDET ---
     try:
-        # Apply KILL or SPARE consequences
-        if choice == 'KILL':
+        globals()['pending_gambit_choice'] = choice
+    except Exception:
+        pass
+
+    # Handle KILL choice: keep existing bonus logic
+    if choice == 'KILL':
+        try:
+            kb = int(globals().get('KILL_BONUS_BASE', 5))
+            km = int(globals().get('KILL_BONUS_MULTIPLIER', 2))
+            streak = int(consecutive_kills or 0)
+            bonus = int(kb * (km ** streak))
+        except Exception:
             try:
-                # Compute kill bonus using configured globals when available
-                kb = int(globals().get('KILL_BONUS_BASE', 5))
-                km = int(globals().get('KILL_BONUS_MULTIPLIER', 2))
-                streak = int(consecutive_kills or 0)
-                bonus = int(kb * (km ** streak))
+                bonus = 5 * (2 ** int(consecutive_kills or 0))
             except Exception:
-                try:
-                    bonus = 5 * (2 ** int(consecutive_kills or 0))
-                except Exception:
-                    bonus = 5
+                bonus = 5
+        try:
+            MONEY = int((MONEY if MONEY is not None else 0) + int(bonus))
+        except Exception:
             try:
-                MONEY += int(bonus)
+                globals()['MONEY'] = int(bonus)
             except Exception:
+                pass
+        try:
+            consecutive_kills = int(consecutive_kills or 0) + 1
+        except Exception:
+            consecutive_kills = 1
+        try:
+            threshold = int(globals().get('KILL_BANNER_THRESHOLD', 2))
+            if threshold > 0 and (int(consecutive_kills) % threshold) == 0:
                 try:
-                    MONEY = int(bonus)
-                except Exception:
-                    pass
-                try:
-                    _ = globals().get('MONEY')
-                except Exception:
-                    pass
-            # increase consecutive kill streak and reset spared counter
-            try:
-                consecutive_kills = int(consecutive_kills or 0) + 1
-            except Exception:
-                consecutive_kills = 1
-            # Every KILL_BANNER_THRESHOLD kills, mark a random active joker
-            try:
-                threshold = int(globals().get('KILL_BANNER_THRESHOLD', 2))
-                if threshold > 0 and (int(consecutive_kills) % threshold) == 0:
-                    # choose a random active joker index if any
-                    try:
-                        if active_jokers:
-                            idx = random.randrange(len(active_jokers))
-                            globals()['joker_kill_banner_index'] = int(idx)
-                        else:
-                            globals()['joker_kill_banner_index'] = -1
-                    except Exception:
+                    if active_jokers:
+                        idx = random.randrange(len(active_jokers))
+                        globals()['joker_kill_banner_index'] = int(idx)
+                    else:
                         globals()['joker_kill_banner_index'] = -1
-            except Exception:
-                try:
-                    globals()['joker_kill_banner_index'] = -1
                 except Exception:
-                    pass
-            try:
-                total_spared_bosses = 0
-            except Exception:
-                total_spared_bosses = 0
-        elif choice == 'SPARE':
-            # no immediate money reward for sparing
-            try:
-                total_spared_bosses = int(total_spared_bosses or 0) + 1
-            except Exception:
-                total_spared_bosses = 1
-            try:
-                consecutive_kills = 0
-            except Exception:
-                consecutive_kills = 0
-            # Reset any kill-banner when the player spares
+                    globals()['joker_kill_banner_index'] = -1
+        except Exception:
             try:
                 globals()['joker_kill_banner_index'] = -1
             except Exception:
                 pass
 
-        # Reset only hand/score related state now; do NOT touch boss/ante globals.
+        # Prepare result message and go to result screen
         try:
-            reset_hand_state()
+            globals()['gambit_result_message'] = f"{int(bonus)} $ kazandın."
+        except Exception:
+            globals()['gambit_result_message'] = "Ödül kazandın."
+        try:
+            globals()['game_state'] = STATE_GAMBIT_RESULT
         except Exception:
             pass
 
-        # Prepare a short result message and defer the actual next-round setup
+    elif choice == 'SPARE':
+        # SPARE bookkeeping
         try:
-            if choice == 'KILL':
+            globals()['total_spared_bosses'] = int(globals().get('total_spared_bosses', 0)) + 1
+        except Exception:
+            globals()['total_spared_bosses'] = 1
+        try:
+            globals()['consecutive_kills'] = 0
+        except Exception:
+            globals()['consecutive_kills'] = 0
+        try:
+            globals()['joker_kill_banner_index'] = -1
+        except Exception:
+            pass
+
+        # Initialize mercy-phase variables
+        try:
+            globals()['mercy_timer'] = 0
+            globals()['mercy_hit_count'] = 0
+            globals()['mercy_warmup_timer'] = 1.0
+            globals()['mercy_projectiles'] = []
+            lvl = int(globals().get('ante_level', 1))
+            globals()['mercy_duration'] = int((5 + lvl * 1.5) * 1000)
+            # Spawn a Mercy player if class exists
+            if 'MercySoul' in globals():
                 try:
-                    gambit_result_message = f"{int(bonus)} $ kazandın."
+                    globals()['mercy_player'] = MercySoul()
                 except Exception:
-                    gambit_result_message = "Ödül kazandın."
-            else:
-                gambit_result_message = "Hikaye yoluna bir adım daha yaklaştın."
+                    pass
+        except Exception:
+            pass
+
+        # Critical: go to mercy phase
+        try:
+            globals()['game_state'] = STATE_MERCY_PHASE
             try:
-                pending_gambit_choice = choice
-            except Exception:
-                pending_gambit_choice = choice
-            # show result screen — final reset/load will occur when player confirms
-            try:
-                globals()['game_state'] = STATE_GAMBIT_RESULT
+                print("DEBUG: Mercy Phase Başlatıldı!")
             except Exception:
                 pass
         except Exception:
             pass
 
-        # (gambit choice handling complete)
+    # --- EL SIFIRLAMA (Her iki durumda da) ---
+    try:
+        reset_hand_state()
     except Exception:
         pass
 
@@ -3907,65 +4126,68 @@ def recalculate_hand_positions():
     try:
         # number of visible cards (non-None)
         visible_cards = [c for c in hand if c is not None]
-        slots = len(visible_cards)
-        if slots == 0:
-            # fallback to current hand list length
-            slots = max(1, len(hand))
+        count = len(visible_cards)
+        if count == 0:
+            count = max(1, len(hand))
 
-        # Adaptive spacing: allow overlap when many cards are present so the
-        # hand fits within a fraction of the screen width.
-        try:
-            MAX_HAND_WIDTH = int(SCREEN_WIDTH * 0.8)
-            total_card_width = int(slots * CARD_WIDTH)
-            if total_card_width <= MAX_HAND_WIDTH or slots <= 1:
-                # Normal spacing: CARD_WIDTH + small gap
-                horizontal_spacing = CARD_WIDTH + 10
+        # --- YENİ GÜVENLİ YERLEŞİM MANTIĞI ---
+        SAFE_MARGIN = 50
+        MAX_AVAILABLE_WIDTH = SCREEN_WIDTH - (2 * SAFE_MARGIN)
+
+        if count > 0:
+            STANDARD_SPACING = 10
+            native_width = (count * CARD_WIDTH) + ((count - 1) * STANDARD_SPACING)
+
+            if native_width <= MAX_AVAILABLE_WIDTH:
+                step = CARD_WIDTH + STANDARD_SPACING
+                total_width = native_width
             else:
-                # Need to overlap cards so the whole hand fits
-                overlap_needed = total_card_width - MAX_HAND_WIDTH
-                # distribute overlap across gaps between adjacent cards
-                card_overlap = float(overlap_needed) / max(1, (slots - 1))
-                horizontal_spacing = float(CARD_WIDTH) - card_overlap
-            # compute total width using first card + (n-1) * spacing
-            TOTAL_HAND_WIDTH = int(CARD_WIDTH + (slots - 1) * horizontal_spacing)
-            START_X = int((SCREEN_WIDTH - TOTAL_HAND_WIDTH) / 2)
-            step = horizontal_spacing
-        except Exception:
-            step = CARD_SPACING
-            TOTAL_HAND_WIDTH = int(slots * step)
-            START_X = int((SCREEN_WIDTH - TOTAL_HAND_WIDTH) / 2)
-
-        # assign targets based on current visible ordering
-        idx = 0
-        for i, card in enumerate(hand):
-            if card is None:
-                continue
-            card.target_x = float(START_X + idx * step)
-            # Hierarchical Y: selected overrides hover, hover overrides normal
-            try:
-                if getattr(card, 'is_selected', False):
-                    card.target_y = float(SELECTED_Y_POS)
-                elif getattr(card, 'is_hovered', False):
-                    card.target_y = float(HOVER_Y_POS)
+                if count > 1:
+                    step = (MAX_AVAILABLE_WIDTH - CARD_WIDTH) / (count - 1)
                 else:
-                    card.target_y = float(NORMAL_Y_POS)
-            except Exception:
-                # fallback to legacy constants if something goes wrong
-                card.target_y = float(SELECTED_Y if getattr(card, 'is_selected', False) else NORMAL_Y)
-            # also set slot_index if not present
+                    step = CARD_WIDTH
+                total_width = MAX_AVAILABLE_WIDTH
+
+            START_X = int((SCREEN_WIDTH - total_width) / 2)
+            if START_X < SAFE_MARGIN:
+                START_X = SAFE_MARGIN
+
+            # assign targets based on current visible ordering
+            idx = 0
+            for i, card in enumerate(hand):
+                if card is None:
+                    continue
+                try:
+                    card.target_x = float(START_X + idx * step)
+                except Exception:
+                    card.target_x = float(START_X + idx * (CARD_WIDTH + STANDARD_SPACING))
+                # Y placement
+                try:
+                    if getattr(card, 'is_selected', False):
+                        card.target_y = float(SELECTED_Y_POS)
+                    elif getattr(card, 'is_hovered', False):
+                        card.target_y = float(HOVER_Y_POS)
+                    else:
+                        card.target_y = float(NORMAL_Y_POS)
+                except Exception:
+                    card.target_y = float(SELECTED_Y if getattr(card, 'is_selected', False) else NORMAL_Y)
+                try:
+                    card.slot_index = i
+                except Exception:
+                    pass
+                idx += 1
+
+            # EXTRA_SLOT_X: place to right of last card, then clamp to screen
             try:
-                card.slot_index = i
+                last_card_edge = START_X + ((count - 1) * step) + CARD_WIDTH
+                globals()['EXTRA_SLOT_X'] = int(last_card_edge + 20)
+                if globals()['EXTRA_SLOT_X'] + CARD_WIDTH > SCREEN_WIDTH - 20:
+                    globals()['EXTRA_SLOT_X'] = SCREEN_WIDTH - CARD_WIDTH - 20
             except Exception:
-                pass
-            idx += 1
-        # Update global EXTRA_SLOT_X to sit just to the right of the hand
-        try:
-            globals()['EXTRA_SLOT_X'] = START_X + (len(hand) * step) + 20
-        except Exception:
-            try:
-                EXTRA_SLOT_X = START_X + (len(hand) * step) + 20
-            except Exception:
-                pass
+                try:
+                    globals()['EXTRA_SLOT_X'] = START_X + (len(hand) * step) + 20
+                except Exception:
+                    pass
     except Exception:
         pass
 
@@ -3983,24 +4205,35 @@ def update_hand_layout():
         if count <= 0:
             return
 
-        # Adaptive horizontal spacing: allow overlap when needed so the hand
-        # fits within MAX_HAND_WIDTH fraction of the screen.
-        try:
-            MAX_HAND_WIDTH = int(SCREEN_WIDTH * 0.8)
-            total_card_width = int(count * CARD_WIDTH)
-            if total_card_width <= MAX_HAND_WIDTH or count <= 1:
-                horizontal_spacing = CARD_WIDTH + 10
+        # --- YENİ GÜVENLİ YERLEŞİM MANTIĞI ---
+        SAFE_MARGIN = 50
+        MAX_AVAILABLE_WIDTH = SCREEN_WIDTH - (2 * SAFE_MARGIN)
+
+        if count > 0:
+            STANDARD_SPACING = 10
+            native_width = (count * CARD_WIDTH) + ((count - 1) * STANDARD_SPACING)
+
+            if native_width <= MAX_AVAILABLE_WIDTH:
+                step = CARD_WIDTH + STANDARD_SPACING
+                total_width = native_width
             else:
-                overlap_needed = total_card_width - MAX_HAND_WIDTH
-                card_overlap = float(overlap_needed) / max(1, (count - 1))
-                horizontal_spacing = float(CARD_WIDTH) - card_overlap
-            total_hand_width = CARD_WIDTH + (count - 1) * horizontal_spacing
-            START_X = int((SCREEN_WIDTH - total_hand_width) / 2)
+                if count > 1:
+                    step = (MAX_AVAILABLE_WIDTH - CARD_WIDTH) / (count - 1)
+                else:
+                    step = CARD_WIDTH
+                total_width = MAX_AVAILABLE_WIDTH
+
+            START_X = int((SCREEN_WIDTH - total_width) / 2)
+            if START_X < SAFE_MARGIN:
+                START_X = SAFE_MARGIN
 
             for i, card in enumerate(hand):
                 if card is None:
                     continue
-                card.target_x = START_X + int(i * horizontal_spacing)
+                try:
+                    card.target_x = START_X + int(i * step)
+                except Exception:
+                    card.target_x = START_X + i * (CARD_WIDTH + STANDARD_SPACING)
                 try:
                     if getattr(card, 'is_selected', False):
                         card.target_y = float(SELECTED_Y_POS)
@@ -4010,39 +4243,18 @@ def update_hand_layout():
                         card.target_y = float(NORMAL_Y_POS)
                 except Exception:
                     card.target_y = float(SELECTED_Y if getattr(card, 'is_selected', False) else NORMAL_Y)
-            return
-        except Exception:
-            pass
 
-        # Fallback to original fixed spacing if adaptive calculation fails
+        # Clamp EXTRA_SLOT_X based on last card position
         try:
-            gap = max(0, CARD_SPACING - CARD_WIDTH)
+            last_card_edge = START_X + ((count - 1) * step) + CARD_WIDTH
+            globals()['EXTRA_SLOT_X'] = int(last_card_edge + 20)
+            if globals()['EXTRA_SLOT_X'] + CARD_WIDTH > SCREEN_WIDTH - 20:
+                globals()['EXTRA_SLOT_X'] = SCREEN_WIDTH - CARD_WIDTH - 20
         except Exception:
-            gap = 10
-        total_hand_width = (count * CARD_WIDTH) + (max(0, count - 1) * gap)
-        START_X = int((SCREEN_WIDTH - total_hand_width) / 2)
-        for i, card in enumerate(hand):
-            if card is None:
-                continue
-            card.target_x = START_X + i * (CARD_WIDTH + gap)
             try:
-                if getattr(card, 'is_selected', False):
-                    card.target_y = float(SELECTED_Y_POS)
-                elif getattr(card, 'is_hovered', False):
-                    card.target_y = float(HOVER_Y_POS)
-                else:
-                    card.target_y = float(NORMAL_Y_POS)
+                globals()['EXTRA_SLOT_X'] = START_X + (count * (CARD_WIDTH + STANDARD_SPACING)) + 20
             except Exception:
-                card.target_y = float(SELECTED_Y if getattr(card, 'is_selected', False) else NORMAL_Y)
-            try:
-                if getattr(card, 'is_selected', False):
-                    card.target_y = float(SELECTED_Y_POS)
-                elif getattr(card, 'is_hovered', False):
-                    card.target_y = float(HOVER_Y_POS)
-                else:
-                    card.target_y = float(NORMAL_Y_POS)
-            except Exception:
-                card.target_y = float(SELECTED_Y if getattr(card, 'is_selected', False) else NORMAL_Y)
+                pass
     except Exception:
         pass
 
@@ -4541,58 +4753,54 @@ while running:
     # Frame timing (ms) and delta seconds
     dt_ms = clock.tick(FPS)
     dt = dt_ms / 1000.0
-
-    # Central event capture for this frame (pull events once and reuse per-state)
+    # Central event capture for this frame (pull events once and process inline)
     events = pygame.event.get()
-    # collect a single unblocked mouse-up event to process after other events
-    mouse_up_event = None
+
+    # Her kare başında kilidi temizle (çok önemli — aynı karede birden fazla tıklamayı engelle)
+    try:
+        globals()['CLICK_LOCKED'] = False
+    except Exception:
+        try:
+            CLICK_LOCKED = False
+        except Exception:
+            pass
+
     for event in events:
-        # common resize handler and quit handling
+        # resize and quit are handled immediately
         if event.type in (pygame.VIDEORESIZE, getattr(pygame, 'WINDOWRESIZED', None)):
             handle_resize_event(event)
             continue
         if event.type == pygame.QUIT:
             running = False
-        # Centralized MOUSEBUTTON handling: capture mouse events and defer processing
-        if event.type in (pygame.MOUSEBUTTONUP, pygame.MOUSEBUTTONDOWN) and getattr(event, 'button', None) == 1:
-            try:
-                if globals().get('CLICK_LOCKED'):
-                    try:
-                        pass
-                    except Exception:
-                        pass
-                    continue
-            except Exception:
-                pass
-            # store the first unblocked mouse-up event for processing after other events
-            if event.type == pygame.MOUSEBUTTONUP and mouse_up_event is None:
-                mouse_up_event = event
-            # do not process mouse button events inline here
             continue
 
-    # After all raw events are captured, process a single unblocked mouse-up (if any)
-    if mouse_up_event:
-        event = mouse_up_event
-        # emulate previous inline processing: derive mouse_pos and run state-specific handlers
-        mouse_pos = event.pos
-        if game_state == STATE_MAIN_MENU:
-                # iterate over a static list of items to avoid mutation issues
+        # Left mouse button released — handle per-state clicks inline
+        if event.type == pygame.MOUSEBUTTONUP and getattr(event, 'button', None) == 1:
+            try:
+                if globals().get('CLICK_LOCKED', False):
+                    continue
+            except Exception:
+                try:
+                    if CLICK_LOCKED:
+                        continue
+                except Exception:
+                    pass
+
+            mouse_pos = event.pos
+
+            # --- DURUMA GÖRE İŞLE ---
+            if game_state == STATE_MAIN_MENU:
                 for button_text, button_rect in list(menu_buttons_data.items()):
                     try:
                         if button_rect.collidepoint(mouse_pos):
                             if button_text == 'OYNA':
-                                # --- STATE_MAIN_MENU 'OYNA' Butonu Tıklama Mantığı ---
                                 try:
-                                    CLICK_LOCKED = True
+                                    globals()['CLICK_LOCKED'] = True
                                 except Exception:
                                     try:
-                                        globals()['CLICK_LOCKED'] = True
+                                        CLICK_LOCKED = True
                                     except Exception:
                                         pass
-                                try:
-                                    pass
-                                except Exception:
-                                    pass
                                 game_state = STATE_DECK_SELECT
                             elif button_text == 'AYARLAR':
                                 try:
@@ -4600,18 +4808,10 @@ while running:
                                     globals()['CLICK_LOCKED'] = True
                                 except Exception:
                                     pass
-                                try:
-                                    pass
-                                except Exception:
-                                    pass
                             elif button_text == 'YAPIMCILAR':
                                 try:
                                     game_state = STATE_CREDITS
                                     globals()['CLICK_LOCKED'] = True
-                                except Exception:
-                                    pass
-                                try:
-                                    pass
                                 except Exception:
                                     pass
                             elif button_text == 'DESTEK/ÖNERİ':
@@ -4623,13 +4823,8 @@ while running:
                                         pass
                                 except Exception:
                                     print("DESTEK/ÖNERİ tıklandı, mailto entegrasyonu başarısız.")
-                                try:
-                                    pass
-                                except Exception:
-                                    pass
                             elif button_text == 'ÇIKIŞ':
                                 try:
-                                    # terminate main loop to exit game
                                     running = False
                                     try:
                                         globals()['CLICK_LOCKED'] = True
@@ -4637,23 +4832,20 @@ while running:
                                         pass
                                 except Exception:
                                     pass
-                                try:
-                                    pass
-                                except Exception:
-                                    pass
                             break
                     except Exception:
                         pass
-        elif game_state == STATE_CREDITS:
+
+            elif game_state == STATE_CREDITS:
                 try:
                     if menu_buttons_data.get('GERİ_credits') and menu_buttons_data['GERİ_credits'].collidepoint(mouse_pos):
                         game_state = STATE_MAIN_MENU
                 except Exception:
                     pass
-        elif game_state == STATE_PLAYING:
+
+            elif game_state == STATE_PLAYING:
                 try:
                     if menu_buttons_data.get('BTN_GAME_MENU') and menu_buttons_data['BTN_GAME_MENU'].collidepoint(mouse_pos):
-                        # Reset game state and return to main menu (soulslike behavior)
                         try:
                             reset_game()
                         except Exception:
@@ -4661,13 +4853,14 @@ while running:
                         game_state = STATE_MAIN_MENU
                 except Exception:
                     pass
-        elif game_state == STATE_SETTINGS:
-            handle_settings_click(mouse_pos)
-        elif game_state == STATE_SHOP:
+
+            elif game_state == STATE_SETTINGS:
+                handle_settings_click(mouse_pos)
+
+            elif game_state == STATE_SHOP:
+                # Shop click handling may be more complex; keep existing shop logic
+                # which may run elsewhere — ignore here to avoid duplicates.
                 try:
-                    # Shop click handling is performed in the dedicated
-                    # STATE_SHOP event loop below. Ignore mouse-up events
-                    # here to avoid duplicate purchases (MOUSEBUTTONUP vs MOUSEBUTTONDOWN).
                     pass
                 except Exception:
                     pass
@@ -8270,6 +8463,179 @@ while running:
                         break
                 except Exception:
                     pass
+
+    # Inserted Mercy (SPARE) phase handler if player chooses to spare a boss.
+    elif game_state == STATE_MERCY_PHASE:
+        # 1. ARKA PLANI TEMİZLE (EN ALT KATMAN)
+        screen.fill((0, 0, 0))
+
+        # 2. ARENAYI HESAPLA VE ÇİZ
+        arena_w = 300
+        arena_h = 300
+        arena_x = (SCREEN_WIDTH - arena_w) // 2
+        arena_y = (SCREEN_HEIGHT - arena_h) // 2
+        # Global değişkeni güncelle
+        globals()['mercy_arena_rect'] = pygame.Rect(arena_x, arena_y, arena_w, arena_h)
+
+        # Beyaz Çerçeveyi Çiz (4px kalınlık)
+        try:
+            pygame.draw.rect(screen, (255, 255, 255), globals()['mercy_arena_rect'], 4)
+        except Exception:
+            pass
+
+        # 3. OYUNCU (RUH) KONTROLÜ VE ÇİZİMİ
+        if 'mercy_player' not in globals() or globals().get('mercy_player') is None:
+            try:
+                # MercySoul sınıfının tanımlı olduğundan emin ol, yoksa basit rect kullan
+                if 'MercySoul' in globals():
+                    globals()['mercy_player'] = MercySoul()
+            except Exception:
+                pass
+        
+        mercy_p = globals().get('mercy_player')
+        if mercy_p:
+            try:
+                # dt_ms değişkeni ana döngüden gelmeli
+                dt_sec = dt_ms / 1000.0 if 'dt_ms' in locals() else 0.016
+                if hasattr(mercy_p, 'update'):
+                    mercy_p.update(dt_sec)
+                if hasattr(mercy_p, 'draw'):
+                    mercy_p.draw(screen)
+            except Exception:
+                pass
+
+        # 4. MERMİLERİ GÜNCELLE VE ÇİZ
+        w_timer = globals().get('mercy_warmup_timer', 0)
+        if w_timer > 0:
+            globals()['mercy_warmup_timer'] = w_timer - (dt_ms / 1000.0 if 'dt_ms' in locals() else 0.016)
+            try:
+                font = globals().get('game_font', pygame.font.SysFont(None, 40))
+                txt = font.render("HAZIR OL!", True, (255, 0, 0))
+                screen.blit(txt, (SCREEN_WIDTH//2 - txt.get_width()//2, arena_y - 50))
+            except Exception:
+                pass
+        else:
+            try:
+                # update_mercy_logic fonksiyonunun varlığını kontrol et
+                if 'update_mercy_logic' in globals():
+                    update_mercy_logic(dt_ms / 1000.0 if 'dt_ms' in locals() else 0.016)
+            except Exception:
+                pass
+
+        proj_list = globals().get('mercy_projectiles', [])
+        # Clip drawing to arena so projectiles don't render outside
+        try:
+            screen.set_clip(globals().get('mercy_arena_rect'))
+        except Exception:
+            pass
+
+        for p in list(proj_list):
+            try:
+                if hasattr(p, 'update'):
+                    p.update(dt_ms / 1000.0 if 'dt_ms' in locals() else 0.016)
+                if hasattr(p, 'draw'):
+                    p.draw(screen)
+                
+                # Çarpışma (daraltılmış hitbox)
+                try:
+                    hitbox = None
+                    if mercy_p and hasattr(mercy_p, 'rect'):
+                        # shrink hitbox from center; with 64x64 visual, -30,-30 -> 34x34 hitbox
+                        try:
+                            hitbox = mercy_p.rect.inflate(-30, -30)
+                        except Exception:
+                            hitbox = mercy_p.rect
+                except Exception:
+                    hitbox = None
+
+                if mercy_p and hasattr(p, 'rect') and hitbox is not None and p.rect.colliderect(hitbox):
+                    p.alive = False
+                    globals()['mercy_hit_count'] = globals().get('mercy_hit_count', 0) + 1
+                    current_money = globals().get('MONEY', 0)
+                    penalty = 5 * globals().get('mercy_hit_count', 1)
+                    globals()['MONEY'] = max(0, current_money - penalty)
+                    # Create score splash and flash timer
+                    try:
+                        s = ScoreSplash(f"-{int(penalty)}$", mercy_p.rect.centerx, mercy_p.rect.top, (255, 0, 0))
+                        try:
+                            scores_splash_group.add(s)
+                        except Exception:
+                            try:
+                                globals()['scores_splash_group'].add(s)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                    try:
+                        globals()['mercy_hit_flash_time'] = pygame.time.get_ticks()
+                    except Exception:
+                        pass
+                    
+                if hasattr(p, 'alive') and not p.alive:
+                    try:
+                        proj_list.remove(p)
+                    except ValueError:
+                        pass
+            except Exception:
+                pass
+        # restore clip so HUD and other UI draw normally
+        try:
+            screen.set_clip(None)
+        except Exception:
+            pass
+
+        # Update and draw score splashes for immediate feedback
+        try:
+            try:
+                scores_splash_group.update(dt_ms / 1000.0 if 'dt_ms' in locals() else 0.016)
+            except Exception:
+                scores_splash_group.update()
+            for sp in list(scores_splash_group.sprites()):
+                try:
+                    if hasattr(sp, 'draw'):
+                        sp.draw(screen)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # 5. SÜRE VE BİTİŞ KONTROLÜ
+        m_timer = globals().get('mercy_timer', 0)
+        m_duration = globals().get('mercy_duration', 10000)
+        
+        m_timer += (dt_ms if 'dt_ms' in locals() else 16)
+        globals()['mercy_timer'] = m_timer
+        
+        # Süre çubuğu
+        bar_width = 300
+        try:
+            bar_fill = int(bar_width * min(1.0, m_timer / m_duration))
+        except Exception:
+            bar_fill = 0
+        pygame.draw.rect(screen, (50, 50, 50), (SCREEN_WIDTH//2 - 150, arena_y + arena_h + 20, 300, 10))
+        pygame.draw.rect(screen, (255, 255, 0), (SCREEN_WIDTH//2 - 150, arena_y + arena_h + 20, bar_fill, 10))
+
+        if m_timer >= m_duration:
+            globals()['gambit_result_message'] = "Ruhunu arındırdın."
+            globals()['game_state'] = STATE_GAMBIT_RESULT
+
+        # 6. HASAR FLAŞI (HUD'dan ÖNCE)
+        try:
+            hit_t = globals().get('mercy_hit_flash_time', 0)
+            if hit_t and pygame.time.get_ticks() < (int(hit_t) + 100):
+                try:
+                    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+                    overlay.fill((255, 0, 0, 100))
+                    screen.blit(overlay, (0, 0))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # 7. HUD
+        try:
+            draw_hud(screen)
+        except Exception:
+            pass
 
     elif game_state == STATE_BOSS_DEFEATED_B:
         # Show the boss harmed image left and the current_boss_story on the right
