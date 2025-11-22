@@ -2370,6 +2370,212 @@ active_jokers = []
 # Joker HUD instance (positioned near right edge)
 joker_hud = JokerHUD(SCREEN_WIDTH - 120, 50)
 
+# Fate Orb HUD: displays up to 5 fate-orbs centered between the top HUD and player hand.
+class FateOrbHUD:
+    def __init__(self, y=None, radius=15, spacing=10, max_slots=5):
+        try:
+            self.radius = int(radius)
+            self.spacing = int(spacing)
+            self.max_slots = int(max_slots)
+        except Exception:
+            self.radius = 15
+            self.spacing = 10
+            self.max_slots = 5
+        # slot_rects are computed each draw/update and used for click detection
+        self.slot_rects = [pygame.Rect(0, 0, 0, 0) for _ in range(self.max_slots)]
+        self.y = y
+        try:
+            self.font = game_font_small
+        except Exception:
+            try:
+                self.font = pygame.font.SysFont(None, 18)
+            except Exception:
+                self.font = None
+
+    def _compute_layout(self):
+        # compute Y dynamically so HUD adapts to layout changes
+        try:
+            # Place the fate orbs centered between HUD_Y and the player's hand.
+            # Use a stable central position so the HUD remains visible and centered.
+            top = int(globals().get('HUD_Y', 300))
+            bottom = int(globals().get('NORMAL_Y', 490))
+            # default mid-point
+            mid = int((top + bottom) / 2)
+            # Place slightly above center so they don't overlap boss/hand
+            self.y = int(globals().get('FATE_ORB_Y', mid - 0))
+            # If not set, use an explicit centered Y roughly halfway on screen
+            if self.y is None:
+                self.y = SCREEN_HEIGHT // 2 - 20
+        except Exception:
+            if self.y is None:
+                self.y = SCREEN_HEIGHT // 2 - 20
+        # compute total width assuming each slot occupies (2*radius + spacing)
+        slot_occupancy = (2 * self.radius) + self.spacing
+        total_w = self.max_slots * slot_occupancy - self.spacing
+        # Center explicitly: match requested centering calculation
+        try:
+            start_x = (SCREEN_WIDTH // 2) - (total_w // 2)
+        except Exception:
+            start_x = int((SCREEN_WIDTH - total_w) / 2)
+        # populate slot rects
+        for i in range(self.max_slots):
+            cx = start_x + i * slot_occupancy + self.radius
+            cy = self.y
+            r = int(self.radius)
+            self.slot_rects[i] = pygame.Rect(cx - r, cy - r, r * 2, r * 2)
+
+    def draw(self, surface):
+        try:
+            # If a boss banner animation is active, avoid drawing so the banner
+            # can remain visually on top without HUD overlap.
+            if globals().get('boss_banner_active'):
+                return
+            self._compute_layout()
+        except Exception:
+            pass
+
+        mouse_pos = pygame.mouse.get_pos()
+        try:
+            pf = globals().get('player_fate_orbs', [])
+        except Exception:
+            pf = []
+
+        for i in range(self.max_slots):
+            rect = self.slot_rects[i]
+            # determine if this slot is filled
+            filled = False
+            orb = None
+            try:
+                if i < len(pf) and pf[i] is not None:
+                    filled = True
+                    orb = pf[i]
+            except Exception:
+                filled = False
+
+            # Draw empty slot: white circle outline
+            try:
+                if not filled:
+                    pygame.draw.circle(surface, WHITE, rect.center, self.radius, 2)
+                else:
+                    # filled: draw orb color (fallback to white) and a small white border
+                    col = orb.get('color', (255, 255, 255)) if isinstance(orb, dict) else (255, 255, 255)
+                    # filled circle
+                    pygame.draw.circle(surface, col, rect.center, self.radius)
+                    # white border
+                    pygame.draw.circle(surface, WHITE, rect.center, self.radius, 2)
+            except Exception:
+                try:
+                    pygame.draw.circle(surface, WHITE, rect.center, self.radius, 2)
+                except Exception:
+                    pass
+
+            # Tooltip when hovered over a filled orb
+            try:
+                if filled and rect.collidepoint(mouse_pos):
+                    # build tooltip lines
+                    name = orb.get('name', '') if isinstance(orb, dict) else str(orb)
+                    desc = orb.get('desc', '') if isinstance(orb, dict) else ''
+
+                    # render texts
+                    try:
+                        name_s = self.font.render(name, True, WHITE)
+                    except Exception:
+                        try:
+                            name_s = pygame.font.SysFont(None, 18).render(name, True, WHITE)
+                        except Exception:
+                            name_s = None
+                    try:
+                        desc_s = self.font.render(desc, True, (220, 220, 220))
+                    except Exception:
+                        try:
+                            desc_s = pygame.font.SysFont(None, 16).render(desc, True, (220, 220, 220))
+                        except Exception:
+                            desc_s = None
+
+                    # compute tooltip rect above the orb
+                    tw = max(name_s.get_width() if name_s else 0, desc_s.get_width() if desc_s else 0) + 16
+                    th = (name_s.get_height() if name_s else 0) + (desc_s.get_height() if desc_s else 0) + 12
+                    tx = rect.centerx - tw // 2
+                    ty = rect.top - th - 8
+                    # clamp tooltip to screen
+                    if tx < 6:
+                        tx = 6
+                    if tx + tw > SCREEN_WIDTH - 6:
+                        tx = SCREEN_WIDTH - tw - 6
+
+                    try:
+                        tip_surf = pygame.Surface((tw, th), pygame.SRCALPHA)
+                        tip_surf.fill((10, 10, 10, 220))
+                        pygame.draw.rect(tip_surf, (180, 180, 180), (0, 0, tw, th), 1, border_radius=6)
+                        surface.blit(tip_surf, (tx, ty))
+                        # blit texts
+                        if name_s:
+                            surface.blit(name_s, (tx + 8, ty + 6))
+                        if desc_s:
+                            surface.blit(desc_s, (tx + 8, ty + 6 + (name_s.get_height() if name_s else 0)))
+                    except Exception:
+                        # fallback simple box
+                        try:
+                            pygame.draw.rect(surface, (0, 0, 0), (tx, ty, tw, th))
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+    def handle_click(self, mouse_pos):
+        try:
+            pf = globals().get('player_fate_orbs', [])
+            afr = globals().get('active_fate_rules', [])
+        except Exception:
+            pf = []
+            afr = []
+
+        for i, rect in enumerate(self.slot_rects):
+            try:
+                if rect.collidepoint(mouse_pos):
+                    # if filled, consume
+                    if i < len(pf) and pf[i] is not None:
+                        try:
+                            orb = pf.pop(i)
+                        except Exception:
+                            orb = None
+                        try:
+                            if orb and isinstance(orb, dict) and orb.get('id'):
+                                afr.append(orb.get('id'))
+                        except Exception:
+                            pass
+                        # set globals back
+                        try:
+                            globals()['player_fate_orbs'] = pf
+                            globals()['active_fate_rules'] = afr
+                        except Exception:
+                            pass
+                        try:
+                            globals()['CLICK_LOCKED'] = True
+                        except Exception:
+                            pass
+                        try:
+                            if globals().get('click_sound'):
+                                click_sound.play()
+                        except Exception:
+                            pass
+                        try:
+                            print('Kader Küresi Aktif Edildi!')
+                        except Exception:
+                            pass
+                        return True
+            except Exception:
+                pass
+        return False
+
+# Instantiate FateOrbHUD so game code can call draw/handle_click easily
+fate_orb_hud = FateOrbHUD()
+# Backwards-compatible alias expected by some code: `fate_hud`
+try:
+    fate_hud = fate_orb_hud
+except Exception:
+    fate_hud = FateOrbHUD()
+
 # Shop state containers (ensure they exist before reset_game() can clear them)
 shop_offers = []
 shop_offer_rects = []
@@ -3593,8 +3799,15 @@ def handle_gambit_choice(choice):
     except Exception:
         pass
 
-    # Handle KILL choice: keep existing bonus logic
-    if choice == 'KILL':
+    # Normalize incoming choice and support both legacy ('KILL'/'SPARE')
+    # and new UI values ('AGGRESSIVE'/'EMPATHETIC'/'RATIONAL').
+    try:
+        norm = str(choice).upper() if choice is not None else ''
+    except Exception:
+        norm = choice
+
+    # --- AGGRESSIVE / KILL: award money, increment kill streak ---
+    if norm in ('AGGRESSIVE', 'KILL'):
         try:
             kb = int(globals().get('KILL_BONUS_BASE', 5))
             km = int(globals().get('KILL_BONUS_MULTIPLIER', 2))
@@ -3633,7 +3846,6 @@ def handle_gambit_choice(choice):
             except Exception:
                 pass
 
-        # Prepare result message and go to result screen
         try:
             globals()['gambit_result_message'] = f"{int(bonus)} $ kazandın."
         except Exception:
@@ -3643,8 +3855,8 @@ def handle_gambit_choice(choice):
         except Exception:
             pass
 
-    elif choice == 'SPARE':
-        # SPARE bookkeeping
+    # --- EMPATHETIC / SPARE: start mercy phase ---
+    elif norm in ('EMPATHETIC', 'SPARE'):
         try:
             globals()['total_spared_bosses'] = int(globals().get('total_spared_bosses', 0)) + 1
         except Exception:
@@ -3658,7 +3870,6 @@ def handle_gambit_choice(choice):
         except Exception:
             pass
 
-        # Initialize mercy-phase variables
         try:
             globals()['mercy_timer'] = 0
             globals()['mercy_hit_count'] = 0
@@ -3666,7 +3877,6 @@ def handle_gambit_choice(choice):
             globals()['mercy_projectiles'] = []
             lvl = int(globals().get('ante_level', 1))
             globals()['mercy_duration'] = int((5 + lvl * 1.5) * 1000)
-            # Spawn a Mercy player if class exists
             if 'MercySoul' in globals():
                 try:
                     globals()['mercy_player'] = MercySoul()
@@ -3675,17 +3885,60 @@ def handle_gambit_choice(choice):
         except Exception:
             pass
 
-        # Critical: go to mercy phase
         try:
             globals()['game_state'] = STATE_MERCY_PHASE
-            try:
-                print("DEBUG: Mercy Phase Başlatıldı!")
-            except Exception:
-                pass
         except Exception:
             pass
 
-    # --- EL SIFIRLAMA (Her iki durumda da) ---
+    # --- RATIONAL / BRIBE: negotiate, treat as a spared boss but skip mercy phase ---
+    elif norm in ('RATIONAL', 'BRIBE'):
+        try:
+            globals()['total_spared_bosses'] = int(globals().get('total_spared_bosses', 0)) + 1
+        except Exception:
+            globals()['total_spared_bosses'] = 1
+        try:
+            globals()['consecutive_kills'] = 0
+        except Exception:
+            globals()['consecutive_kills'] = 0
+        try:
+            globals()['joker_kill_banner_index'] = -1
+        except Exception:
+            pass
+
+        # KÜRE VER
+        try:
+            if 'player_fate_orbs' in globals() and len(player_fate_orbs) < 5:
+                if 'FATE_ORBS_POOL' in globals() and FATE_ORBS_POOL:
+                    import random
+                    new_orb = random.choice(FATE_ORBS_POOL)
+                    player_fate_orbs.append(new_orb)
+                    print(f"DEBUG: Küre Verildi: {new_orb.get('name', new_orb.get('id'))}")
+        except Exception:
+            pass
+
+        try:
+            cur_ante = int(globals().get('ante_level', 1))
+        except Exception:
+            cur_ante = 1
+        bribe = int(10 + max(0, (cur_ante - 1)) * 2)
+        try:
+            MONEY = int((MONEY if MONEY is not None else 0) + bribe)
+        except Exception:
+            try:
+                globals()['MONEY'] = int(globals().get('MONEY', 0)) + bribe
+            except Exception:
+                pass
+
+        try:
+            globals()['gambit_result_message'] = "Anlaşma sağlandı. Yoluna devam ediyorsun."
+        except Exception:
+            globals()['gambit_result_message'] = "Anlaşma sağlandı. Yoluna devam ediyorsun."
+        try:
+            globals()['game_state'] = STATE_GAMBIT_RESULT
+        except Exception:
+            pass
+
+    # finalize: reset hand state for next round
     try:
         reset_hand_state()
     except Exception:
@@ -5040,6 +5293,23 @@ while running:
 
             elif game_state == STATE_PLAYING:
                 try:
+                    # Fate orb click handling on mouse-up: allow the HUD to consume clicks
+                    try:
+                        if 'fate_hud' in globals() and globals().get('fate_hud'):
+                            try:
+                                consumed = fate_hud.handle_click(mouse_pos)
+                                if consumed:
+                                    try:
+                                        globals()['CLICK_LOCKED'] = True
+                                    except Exception:
+                                        pass
+                                    # consumed the click; skip other UI handling for this event
+                                    continue
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+
                     if menu_buttons_data.get('BTN_GAME_MENU') and menu_buttons_data['BTN_GAME_MENU'].collidepoint(mouse_pos):
                         try:
                             reset_game()
@@ -5984,6 +6254,15 @@ while running:
             text_surface = preview_font.render(preview_text, True, text_color)
             text_rect = text_surface.get_rect(center=(screen_width / 2, 80))
             screen.blit(text_surface, text_rect)
+        # Draw Fate Orb HUD (shows player_fate_orbs)
+        try:
+            if globals().get('fate_orb_hud'):
+                try:
+                    fate_orb_hud.draw(screen)
+                except Exception:
+                    pass
+        except Exception:
+            pass
         # PLAYING state: enemy is created when an ante is started via the SHOP
         # Do not auto-create or reload bosses here to avoid state resets.
         # check banner expiry
@@ -6082,6 +6361,14 @@ while running:
                     pass
 
                 if not handled:
+                    # --- KADER KÜRESİ TIKLAMA ---
+                    if 'fate_hud' in globals() and fate_hud:
+                        try:
+                            if fate_hud.handle_click(event.pos):
+                                # Küreye tıklandıysa başka şeye tıklama
+                                continue
+                        except Exception:
+                            pass
                     for card in hand:
                         if card is None:
                             continue
@@ -6704,6 +6991,57 @@ while running:
                                             total_chips += 50
                                         elif getattr(sc, 'edition', None) == 'Holo':
                                             total_mult += 10
+                                    except Exception:
+                                        pass
+                            except Exception:
+                                pass
+
+                            # --- Fate orb active rules: check active_fate_rules and apply effects ---
+                            try:
+                                afr = globals().get('active_fate_rules', []) or []
+                                # gather rank values and suits once
+                                ranks = [get_rank_value(getattr(sc, 'rank', None)) for sc in selected_cards]
+                                suits = [getattr(sc, 'suit', None) for sc in selected_cards]
+
+                                # CURSED_7: if any played card is rank 7, multiply total_mult by 7 and reduce discards
+                                if 'CURSED_7' in afr:
+                                    try:
+                                        if any((r == 7) for r in ranks if r is not None):
+                                            total_mult = float(total_mult) * 7
+                                            try:
+                                                globals()['DISCARDS_REMAINING'] = max(0, int(globals().get('DISCARDS_REMAINING', 0)) - 1)
+                                            except Exception:
+                                                pass
+                                            print('Fate rule CURSED_7 applied: x7 multiplier and -1 discard')
+                                    except Exception:
+                                        pass
+
+                                # ACE_KING_BOND: if both Ace(14) and King(13) present, multiply by 4
+                                if 'ACE_KING_BOND' in afr:
+                                    try:
+                                        has_ace = any((r == 14) for r in ranks if r is not None)
+                                        has_king = any((r == 13) for r in ranks if r is not None)
+                                        if has_ace and has_king:
+                                            total_mult = float(total_mult) * 4
+                                            print('Fate rule ACE_KING_BOND applied: x4 multiplier')
+                                    except Exception:
+                                        pass
+
+                                # BLOOD_DIAMOND: +50 chips per diamond played and -1$ per diamond
+                                if 'BLOOD_DIAMOND' in afr:
+                                    try:
+                                        diamond_count = sum(1 for s in suits if str(s).lower() == 'diamonds')
+                                        if diamond_count > 0:
+                                            try:
+                                                total_chips += 50 * int(diamond_count)
+                                            except Exception:
+                                                pass
+                                            try:
+                                                # subtract money per diamond (may go negative)
+                                                globals()['MONEY'] = int(globals().get('MONEY', 0)) - int(diamond_count)
+                                            except Exception:
+                                                pass
+                                            print(f'Fate rule BLOOD_DIAMOND applied: +{50*diamond_count} chips, -{diamond_count}$')
                                     except Exception:
                                         pass
                             except Exception:
@@ -7399,6 +7737,12 @@ while running:
         for card in hand:
             if card is None:
                 continue
+            # --- KADER KÜRELERİNİ ÇİZ ---
+            if 'fate_hud' in globals() and fate_hud:
+                try:
+                    fate_hud.draw(screen)
+                except Exception:
+                    pass
             card.draw(screen) # Kartın kendi 'draw' fonksiyonunu çağır
 
         # Hover and selection target positions are handled centrally by
@@ -8551,26 +8895,29 @@ while running:
 
     # GAME STATE: BOSS DEFEAT / NARRATIVE FLOW
     elif game_state == STATE_BOSS_DEFEATED_A:
-        # Draw boss image on left (prefer harmed variant if available)
-        screen.fill((10, 10, 20))
-        screen.blit(background_image, (0, 0))
+        # New RPG-style gambit UI: left = harmed boss, right-top = opening (typewriter),
+        # right-bottom = three stacked choice buttons.
+        screen.fill((10, 10, 18))
+        try:
+            screen.blit(background_image, (0, 0))
+        except Exception:
+            pass
         try:
             draw_particles(screen)
         except Exception:
             pass
         draw_hud(screen)
+
+        # --- Left: Boss image (harmed preferred) ---
         try:
-            # left area center for boss image
             left_cx = int(SCREEN_WIDTH * 0.25)
             left_cy = int(SCREEN_HEIGHT * 0.5)
             bimg = None
             if enemy is not None:
                 bimg = getattr(enemy, 'harmed_sprite', None) or getattr(enemy, 'current_sprite', None)
             if bimg is None:
-                # fallback placeholder
                 bimg = pygame.Surface((200, 200))
                 bimg.fill((80, 80, 120))
-            # scale to fit into left column width
             max_w = int(SCREEN_WIDTH * 0.4)
             w0, h0 = bimg.get_width(), bimg.get_height()
             scale_w = min(max_w, max(80, w0))
@@ -8581,50 +8928,118 @@ while running:
         except Exception:
             pass
 
-        # Right side dialog box and buttons
+        # --- Right: dialog panel ---
         try:
-            box_x = int(SCREEN_WIDTH * 0.52)
-            box_w = int(SCREEN_WIDTH * 0.44)
-            box_y = int(HUD_Y + 20)
-            box_h = int(SCREEN_HEIGHT - box_y - 40)
-            box_rect = pygame.Rect(box_x, box_y, box_w, box_h)
-            # panel background (semi-transparent black, no visible border)
-            panel = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
-            panel.fill((0, 0, 0, 200))
-            screen.blit(panel, (box_x, box_y))
+            panel_x = int(SCREEN_WIDTH * 0.52)
+            panel_w = int(SCREEN_WIDTH * 0.44)
+            panel_y = int(HUD_Y + 20)
+            panel_h = int(SCREEN_HEIGHT - panel_y - 40)
+            panel_rect = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
+            panel_surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+            panel_surf.fill((6, 6, 8, 220))
+            screen.blit(panel_surf, (panel_x, panel_y))
 
-            # Text prompt
-            prompt = "Beni yendin evet, ama hikayemi dinlemek ister misin acaba?"
-            lines = wrap_text(prompt, game_font_small, box_w - 30)
-            ty = box_y + 20
-            for ln in lines:
-                s = game_font_small.render(ln, True, WHITE)
-                screen.blit(s, (box_x + 16, ty))
-                ty += s.get_height() + 6
+            # fetch dialogue for current boss
+            ck = globals().get('current_boss_key')
+            dialogues = globals().get('BOSS_DIALOGUES', {}) or {}
+            entry = dialogues.get(ck) or {}
+            opening = entry.get('opening', "...")
+            options = entry.get('options', [])[:3]
 
-            # Buttons: HİKAYE DİNLE and DİREKT ÖLDÜR
-            btn_h = 46
-            btn_w = int((box_w - 48) / 2)
-            btn_y = box_y + box_h - btn_h - 20
-            btn1_x = box_x + 16
-            btn2_x = btn1_x + btn_w + 16
-            btn1 = pygame.Rect(btn1_x, btn_y, btn_w, btn_h)
-            btn2 = pygame.Rect(btn2_x, btn_y, btn_w, btn_h)
-            # draw
-            pygame.draw.rect(screen, (50, 140, 220), btn1)
-            pygame.draw.rect(screen, (200, 60, 60), btn2)
-            t1 = game_font_small.render('HİKAYE DİNLE', True, WHITE)
-            t2 = game_font_small.render('DİREKT ÖLDÜR', True, WHITE)
-            screen.blit(t1, (btn1.centerx - t1.get_width()//2, btn1.centery - t1.get_height()//2))
-            screen.blit(t2, (btn2.centerx - t2.get_width()//2, btn2.centery - t2.get_height()//2))
+            # initialize typewriter state per boss key
+            if globals().get('last_boss_dialogue_key') != ck:
+                globals()['last_boss_dialogue_key'] = ck
+                globals()['boss_dialogue_full'] = str(opening or "")
+                globals()['boss_dialogue_index'] = 0
+                globals()['boss_dialogue_visible'] = ""
+                globals()['boss_dialogue_timer'] = 0.0
 
-            # register clickable rects
-            menu_buttons_data['BOSS_LISTEN'] = btn1
-            menu_buttons_data['BOSS_KILL_DIRECT'] = btn2
+            # typewriter progression (STORY_CHAR_DELAY in ms)
+            try:
+                bd_timer = float(globals().get('boss_dialogue_timer', 0.0))
+                bd_idx = int(globals().get('boss_dialogue_index', 0))
+                full = str(globals().get('boss_dialogue_full', ''))
+                bd_timer += float(dt_ms if 'dt_ms' in locals() else 16)
+                delay = int(globals().get('STORY_CHAR_DELAY', 30))
+                while bd_idx < len(full) and bd_timer >= delay:
+                    bd_timer -= delay
+                    bd_idx += 1
+                visible = full[:bd_idx]
+                globals()['boss_dialogue_timer'] = bd_timer
+                globals()['boss_dialogue_index'] = bd_idx
+                globals()['boss_dialogue_visible'] = visible
+            except Exception:
+                try:
+                    globals()['boss_dialogue_visible'] = opening
+                except Exception:
+                    globals()['boss_dialogue_visible'] = opening
+
+            # Draw opening (typewriter) in right-top area
+            try:
+                text_x = panel_x + 20
+                text_y = panel_y + 18
+                available_w = panel_w - 40
+                lines = wrap_text(globals().get('boss_dialogue_visible', ''), game_font_small, available_w)
+                ty = text_y
+                for ln in lines:
+                    s = game_font_small.render(ln, True, WHITE)
+                    screen.blit(s, (text_x, ty))
+                    ty += s.get_height() + 6
+            except Exception:
+                pass
+
+            # --- Right-bottom: 3 stacked wide buttons for options ---
+            try:
+                btn_area_top = panel_y + int(panel_h * 0.52)
+                btn_w = panel_w - 40
+                btn_h = max(48, int((panel_h - (btn_area_top - panel_y) - 40) / 4))
+                btn_x = panel_x + 20
+                btns = []
+                # Ensure exactly 3 options (pad with blanks if needed)
+                while len(options) < 3:
+                    options.append({'label': 'PAS', 'type': 'RATIONAL', 'text': '...','effect_desc': ''})
+                for i, opt in enumerate(options[:3]):
+                    by = btn_area_top + i * (btn_h + 12)
+                    r = pygame.Rect(btn_x, by, btn_w, btn_h)
+                    # button color depends on type
+                    t = (opt.get('type') or '').upper()
+                    if t == 'AGGRESSIVE':
+                        color = (200, 50, 60)
+                    elif t == 'EMPATHETIC':
+                        color = (50, 140, 220)
+                    else:
+                        color = (120, 120, 120)
+                    pygame.draw.rect(screen, color, r, border_radius=6)
+                    # main text (option text)
+                    try:
+                        txt = opt.get('text', '')
+                        t_s = game_font.render(txt, True, WHITE)
+                        screen.blit(t_s, (r.x + 12, r.y + 8))
+                    except Exception:
+                        pass
+                    # effect_desc small text under the main label
+                    try:
+                        eff = opt.get('effect_desc', '')
+                        eff_s = pygame.font.SysFont(None, 18).render(eff, True, (230, 230, 230))
+                        screen.blit(eff_s, (r.x + 12, r.y + 8 + (t_s.get_height() if 't_s' in locals() else 20)))
+                    except Exception:
+                        pass
+                    key = f'GAMBIT_OPT_{i}'
+                    menu_buttons_data[key] = r
+                    # store mapping from key to option type
+                    try:
+                        if 'gambit_option_map' not in globals():
+                            globals()['gambit_option_map'] = {}
+                        globals()['gambit_option_map'][key] = (opt.get('type') or 'RATIONAL')
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
         except Exception:
             pass
 
-        # handle input for this state
+        # --- Input handling for these buttons ---
         for event in events:
             if event.type in (pygame.VIDEORESIZE, getattr(pygame, 'WINDOWRESIZED', None)):
                 handle_resize_event(event)
@@ -8641,21 +9056,26 @@ while running:
             if event.type == pygame.MOUSEBUTTONDOWN and getattr(event, 'button', None) == 1:
                 mp = event.pos
                 try:
-                    if menu_buttons_data.get('BOSS_LISTEN') and menu_buttons_data['BOSS_LISTEN'].collidepoint(mp):
-                        # go to B state where story is shown
-                        game_state = STATE_BOSS_DEFEATED_B
-                        # reset typewriter state when entering story screen
-                        try:
-                            globals()['visible_story_text'] = ""
-                            globals()['story_text_index'] = 0
-                            globals()['story_timer'] = 0
-                        except Exception:
-                            pass
-                        break
-                    if menu_buttons_data.get('BOSS_KILL_DIRECT') and menu_buttons_data['BOSS_KILL_DIRECT'].collidepoint(mp):
-                        # skip story and go to gambit choice directly
-                        game_state = STATE_GAMBIT_CHOICE
-                        break
+                    for i in range(3):
+                        key = f'GAMBIT_OPT_{i}'
+                        if menu_buttons_data.get(key) and menu_buttons_data[key].collidepoint(mp):
+                            # Map dialog type to gambit choice expected by handle_gambit_choice
+                            typ = (globals().get('gambit_option_map', {}) or {}).get(key, 'RATIONAL')
+                            mapping = {'AGGRESSIVE': 'KILL', 'EMPATHETIC': 'SPARE', 'RATIONAL': 'SPARE'}
+                            mapped = mapping.get(typ.upper(), 'SPARE')
+                            try:
+                                handle_gambit_choice(mapped)
+                            except Exception:
+                                try:
+                                    globals()['pending_gambit_choice'] = mapped
+                                    globals()['game_state'] = STATE_GAMBIT_CHOICE
+                                except Exception:
+                                    pass
+                            try:
+                                globals()['CLICK_LOCKED'] = True
+                            except Exception:
+                                pass
+                            break
                 except Exception:
                     pass
 

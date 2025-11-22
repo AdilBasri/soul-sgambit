@@ -123,6 +123,126 @@ BOSS_METADATA = {
 	}
 }
 
+
+# --- Boss Dialogues for gambit choices (displayed on boss-defeated screen) ---
+# Each boss key maps to an 'opening' line and three options the player chooses from.
+# Options contain a label (shown on the button), a type, the spoken text, and a
+# short effect description used in the UI.
+BOSS_DIALOGUES = {
+	'boss1': {
+		'opening': "Küçük taneler... bana yetmedi, ama senin elinle yarışırım.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Yemini yedin; şimdi sıra sende!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Neden koştuğunu bana anlat.", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Bana yem ver, yollarımız ayrılır.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'boss2': {
+		'opening': "Gözlerim her şeyi gördü... ama yine de şaşırdım.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Görüntülerini sileceğim!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Gözlerin yorgun görünüyor, sus.", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Sana bir perde veririm, görmeyi bırak.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'mainboss1': {
+		'opening': "Bir general olarak emrediyorum: artık dinlenebilirim.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Senin son emrin burada!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Emrinden vazgeçmek ister misin?", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Bana bir miras bırak, gideyim.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'smug': {
+		'opening': "Heh, güzel bir koleksiyon daha. Sen de takas edebilirsin.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Koleksiyonumu parçalayıp götüreceğim!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Neden biriktirdiğini söyle.", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Bir miktar ver, seni serbest bırakayım.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'shi-shu': {
+		'opening': "Dokunma... dokunma beni daha da kırar.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Sensiz daha güçlü olurum!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Kesinlikle yalnızsın. Dinleyeyim mi?", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Bir korunma ver, susacağım.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'mainboss2': {
+		'opening': "Bir liderin son sözü üzerinden geçilir... benimki bu.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Sürünü paramparça edeceğim!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Lider olmanın yükünü anlat.", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Bir parça onur verirsen çekilirim.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'pimp': {
+		'opening': "Daha fazlası... her zaman daha fazlası.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Tıkanacaksın açgözlülüğünde!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Neden duramıyorsun, anlat.", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Biraz bırak, huzura kavuş.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'coby': {
+		'opening': "Toprak, kök ve çürüme... hisset beni, sonra bırak.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Ormanı yakacağım, kökleri kurutacağım!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Çaresizliğini duy, birlikte gerek.", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Bir filiz ver, sessiz kalırım.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'mainboss3': {
+		'opening': "Ben mimar, bu kumarhane benim tasarımım. Seçim senin son kozun.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Tüm planlarını çökerteceğim!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Beni affetmeye ikna et.", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Bana pay ver, seni serbest bırakırım.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'endless1': {
+		'opening': "Gecenin suskunluğu, açlığımın yankısı.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Seni karanlığa gömeceğim!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Bir parça ışık ver, dururum.", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Kanından bir yudum ver, çekilirim.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'endless2': {
+		'opening': "Soğuk sürüngen gözlerle bakıyorum; hareket etme.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Deri altına çökeceğim!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Saklanma nedenini anlat.", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Bir parça sıcaklık ver, yoluma bakayım.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'endless3': {
+		'opening': "Kanın tadı tutkudur; duramam.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Seni sındıracağım!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Dur, neden susuyorsun?", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Bir damla ver, çekilebilirim.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'endless4': {
+		'opening': "Üç gözümle her açıyı sayıyorum.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Gözcünü kıracağım!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Gözlerinin yükünü paylaşayım mı?", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Görmeyi kesmem için bir hediye ver.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	},
+	'endless5': {
+		'opening': "Bir kralın son emri: toplayın.",
+		'options': [
+			{'label': 'YIKIM (Saldır)', 'type': 'AGGRESSIVE', 'text': "Tahtını devireceğim!", 'effect_desc': "Ruhu Tüket (+Para, +Kill)"},
+			{'label': 'MERHAMET (Dinle)', 'type': 'EMPATHETIC', 'text': "Çünkü hükmetmek yordu seni, dinlen.", 'effect_desc': "Ruhu Arındır (Savaş Modu, +Spare)"},
+			{'label': 'ANLAŞMA (Rüşvet)', 'type': 'RATIONAL', 'text': "Bir ödül ver, yoluna bakayım.", 'effect_desc': "Savaşmadan Geç (+Az Para, +Spare)"}
+		]
+	}
+}
+
 # Canonical boss sequence used for ante 1..9
 BOSS_SEQUENCE_KEYS = [
 	'boss1', 'boss2', 'mainboss1',
@@ -161,6 +281,39 @@ DECK_UNLOCKS = {
 	'SOUL': False,
 	'CHAOS': False,
 }
+
+# --- Fate Orbs: predefined pool and player inventory ---
+# `FATE_ORBS_POOL` contains canonical fate-orb definitions the game
+# can draw from when granting or selling orbs. Each orb is a dict with
+# an `id` (used in saved state), `name`, `desc` (shown in UI), and a
+# `color` RGB tuple used for simple icon rendering.
+FATE_ORBS_POOL = [
+	{
+		'id': 'CURSED_7',
+		'name': "Lanetli 7",
+		'desc': "7'liler x7 Puan verir ama oynandığında -1 Değiştirme Hakkı siler.",
+		'color': (200, 50, 50),
+	},
+	{
+		'id': 'ACE_KING_BOND',
+		'name': "Kral ve As Bağı",
+		'desc': "As ve Kral birlikte oynanırsa x4 Puan. Biri oynanırken diğeri de seçilmelidir.",
+		'color': (50, 100, 200),
+	},
+	{
+		'id': 'BLOOD_DIAMOND',
+		'name': "Kanlı Karo",
+		'desc': "Karolar +50 Çip verir ama oynandığında 1$ siler.",
+		'color': (180, 30, 30),
+	},
+]
+
+# Player's current fate-orb inventory (unspent). Max capacity: 5.
+player_fate_orbs = []
+
+# IDs of fate orb rules that have been applied permanently to the deck.
+# Stored as a list of fate-orb `id` strings.
+active_fate_rules = []
 
 # Persistent unlocks save file and helpers
 import json
