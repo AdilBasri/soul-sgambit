@@ -2510,8 +2510,13 @@ class MercySoul:
 
 class MercyProjectile:
     """Savaş modunda oyuncuya saldıran mermiler."""
-    def __init__(self, x, y, vx, vy, ptype='default'):
-        self.rect = pygame.Rect(int(x), int(y), 10, 10) # 10x10 mermi
+    def __init__(self, x, y, vx, vy, ptype='default', size=10):
+        # allow varying projectile sizes (e.g. large area bullets)
+        self.size = int(size) if size is not None else 10
+        try:
+            self.rect = pygame.Rect(int(x), int(y), self.size, self.size)
+        except Exception:
+            self.rect = pygame.Rect(int(x), int(y), 10, 10)
         self.vx = float(vx)
         self.vy = float(vy)
         self.type = ptype
@@ -2526,22 +2531,56 @@ class MercyProjectile:
         
         # Ekran dışına çıkarsa yok et (Performans)
         try:
-            if not screen.get_rect().colliderect(self.rect):
+            # expand check by size to avoid early disposal for large projectiles
+            if not screen.get_rect().colliderect(self.rect.inflate(4, 4)):
                 self.alive = False
         except Exception:
             pass
             
     def draw(self, surface):
-        color = (255, 255, 255) # Beyaz
+        # Color and style mapping for different projectile types
+        color = (255, 255, 255)  # default white
         try:
-            if self.type == 'feed': color = (255, 255, 0)
-            elif self.type == 'tears': color = (0, 100, 255)
+            if self.type == 'feed':
+                color = (255, 255, 0)
+            elif self.type == 'tears':
+                color = (0, 100, 255)
+            elif self.type == 'fire':
+                # red/orange fire
+                color = (255, 120, 20)
+            elif self.type == 'coin':
+                color = (212, 175, 55)
+            elif self.type == 'fast':
+                color = (220, 50, 200)
+            elif self.type == 'spray':
+                color = (200, 200, 200)
+            elif self.type == 'big':
+                color = (200, 60, 60)
+            elif self.type == 'mixed':
+                # pick a random color from a small palette
+                color = random.choice([(255, 120, 20), (212,175,55), (0,100,255), (200,200,200)])
         except Exception:
             pass
+
         try:
-            pygame.draw.rect(surface, color, self.rect)
+            # coins and rounded things draw as circles for nicer visuals
+            if self.type == 'coin':
+                r = max(2, self.rect.width // 2)
+                pygame.draw.circle(surface, color, self.rect.center, r)
+            elif self.type in ('tears', 'fire'):
+                # draw as rounded rect / ellipse
+                try:
+                    pygame.draw.ellipse(surface, color, self.rect)
+                except Exception:
+                    pygame.draw.rect(surface, color, self.rect)
+            else:
+                # default rectangular projectile (size-aware)
+                pygame.draw.rect(surface, color, self.rect)
         except Exception:
-            pass
+            try:
+                pygame.draw.rect(surface, color, self.rect)
+            except Exception:
+                pass
 
 
 def update_mercy_logic(dt):
@@ -2565,6 +2604,149 @@ def update_mercy_logic(dt):
                 x = random.randint(arena.left, max(arena.left+1, arena.right - 10))
                 p = MercyProjectile(x, arena.top, 0, 200, 'feed')
                 globals()['mercy_projectiles'].append(p)
+            elif ck in ('mainboss1', 'Azazel'):
+                # Azazel: rain of fireballs from top and sides
+                # top fireballs
+                for _ in range(random.randint(2, 4)):
+                    sx = random.randint(arena.left, arena.right)
+                    svx = random.uniform(-60, 60)
+                    svy = random.uniform(220, 360)
+                    p = MercyProjectile(sx, arena.top, svx, svy, 'fire', size=12)
+                    globals()['mercy_projectiles'].append(p)
+                # side fireballs aimed inward
+                if random.random() < 0.5:
+                    side = random.choice(['left','right'])
+                    sy = random.randint(arena.top, arena.bottom)
+                    svx = 200 if side == 'left' else -200
+                    svy = random.uniform(-40, 40)
+                    sx = arena.left if side == 'left' else arena.right
+                    p = MercyProjectile(sx, sy, svx, svy, 'fire', size=14)
+                    globals()['mercy_projectiles'].append(p)
+            elif ck in ('smug',):
+                # Smug: fling golden coins downwards with slight drift
+                for _ in range(random.randint(1, 3)):
+                    sx = random.randint(arena.left, arena.right)
+                    svx = random.uniform(-80, 80)
+                    svy = random.uniform(140, 240)
+                    p = MercyProjectile(sx, arena.top, svx, svy, 'coin', size=12)
+                    globals()['mercy_projectiles'].append(p)
+            elif ck in ('shi-shu',):
+                # Shi-shu: aim blue tears toward the player
+                player = globals().get('mercy_player')
+                if player is not None:
+                    px, py = player.rect.centerx, player.rect.centery
+                    # spawn 1-3 tears from top aiming at player
+                    for _ in range(random.randint(1, 3)):
+                        sx = random.randint(arena.left, arena.right)
+                        sy = arena.top
+                        dx = px - sx
+                        dy = py - sy
+                        dist = math.hypot(dx, dy) or 1.0
+                        speed = random.uniform(220, 320)
+                        vx = dx / dist * speed
+                        vy = dy / dist * speed
+                        p = MercyProjectile(sx, sy, vx, vy, 'tears', size=10)
+                        globals()['mercy_projectiles'].append(p)
+                else:
+                    # fallback: simple tears from top
+                    sx = random.randint(arena.left, arena.right)
+                    p = MercyProjectile(sx, arena.top, 0, 180, 'tears')
+                    globals()['mercy_projectiles'].append(p)
+            elif ck in ('mainboss2', 'Al'):
+                # Al: fast, targeted bullets from edges toward player
+                player = globals().get('mercy_player')
+                side = random.choice(['top','bottom','left','right'])
+                if side == 'top':
+                    sx = random.randint(arena.left, arena.right)
+                    sy = arena.top
+                elif side == 'bottom':
+                    sx = random.randint(arena.left, arena.right)
+                    sy = arena.bottom
+                elif side == 'left':
+                    sx = arena.left
+                    sy = random.randint(arena.top, arena.bottom)
+                else:
+                    sx = arena.right
+                    sy = random.randint(arena.top, arena.bottom)
+                if player is not None:
+                    dx = player.rect.centerx - sx
+                    dy = player.rect.centery - sy
+                    dist = math.hypot(dx, dy) or 1.0
+                    speed = random.uniform(300, 460)
+                    vx = dx / dist * speed
+                    vy = dy / dist * speed
+                else:
+                    # aim roughly toward center
+                    cx, cy = arena.centerx, arena.centery
+                    dx = cx - sx
+                    dy = cy - sy
+                    dist = math.hypot(dx, dy) or 1.0
+                    speed = 360.0
+                    vx = dx / dist * speed
+                    vy = dy / dist * speed
+                p = MercyProjectile(sx, sy, vx, vy, 'fast', size=8)
+                globals()['mercy_projectiles'].append(p)
+            elif ck in ('pimp',):
+                # Pimp: many small random bullets
+                for _ in range(random.randint(5, 10)):
+                    sx = random.randint(arena.left, arena.right)
+                    sy = random.randint(arena.top, arena.bottom)
+                    ang = random.uniform(0, math.tau if hasattr(math, 'tau') else 2*math.pi)
+                    speed = random.uniform(120, 260)
+                    vx = math.cos(ang) * speed
+                    vy = math.sin(ang) * speed
+                    p = MercyProjectile(sx, sy, vx, vy, 'spray', size=6)
+                    globals()['mercy_projectiles'].append(p)
+            elif ck in ('coby',):
+                # Coby: slow but large area-covering projectiles
+                for _ in range(random.randint(1, 3)):
+                    sx = random.randint(arena.left, arena.right)
+                    sy = random.randint(arena.top, arena.bottom)
+                    ang = random.uniform(-0.5, 0.5)
+                    vx = math.cos(ang) * random.uniform(-40, 40)
+                    vy = math.sin(ang) * random.uniform(40, 100)
+                    p = MercyProjectile(sx, sy, vx, vy, 'big', size=28)
+                    globals()['mercy_projectiles'].append(p)
+            elif ck in ('mainboss3',):
+                # mainboss3: mixed attacks from various patterns
+                choice = random.choice(['fire','coin','tears','fast','spray'])
+                if choice == 'fire':
+                    sx = random.randint(arena.left, arena.right)
+                    p = MercyProjectile(sx, arena.top, random.uniform(-50,50), random.uniform(200,320), 'fire', size=12)
+                    globals()['mercy_projectiles'].append(p)
+                elif choice == 'coin':
+                    sx = random.randint(arena.left, arena.right)
+                    p = MercyProjectile(sx, arena.top, random.uniform(-60,60), random.uniform(140,220), 'coin', size=12)
+                    globals()['mercy_projectiles'].append(p)
+                elif choice == 'tears':
+                    player = globals().get('mercy_player')
+                    if player is not None:
+                        px, py = player.rect.centerx, player.rect.centery
+                        sx = random.randint(arena.left, arena.right)
+                        dx = px - sx
+                        dy = py - arena.top
+                        dist = math.hypot(dx, dy) or 1.0
+                        speed = random.uniform(220, 320)
+                        vx = dx / dist * speed
+                        vy = dy / dist * speed
+                        p = MercyProjectile(sx, arena.top, vx, vy, 'tears', size=10)
+                        globals()['mercy_projectiles'].append(p)
+                elif choice == 'fast':
+                    sx = random.choice([arena.left, arena.right])
+                    sy = random.randint(arena.top, arena.bottom)
+                    vx = -250 if sx == arena.right else 250
+                    vy = random.uniform(-40,40)
+                    p = MercyProjectile(sx, sy, vx, vy, 'fast', size=8)
+                    globals()['mercy_projectiles'].append(p)
+                else:
+                    # spray
+                    for _ in range(random.randint(3,6)):
+                        sx = random.randint(arena.left, arena.right)
+                        sy = random.randint(arena.top, arena.bottom)
+                        ang = random.uniform(0, 2*math.pi)
+                        sp = random.uniform(120, 260)
+                        p = MercyProjectile(sx, sy, math.cos(ang)*sp, math.sin(ang)*sp, 'spray', size=6)
+                        globals()['mercy_projectiles'].append(p)
             elif ck in ('boss2', 'Oculus'):
                 # simple radial shot from random edge towards center
                 side = random.choice(['top','bottom','left','right'])
